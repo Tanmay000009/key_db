@@ -8,12 +8,16 @@ fn main() {
     let mut db = Database::new().expect("Creating DB failed!");
     db.insert(key.to_uppercase(), value.clone());
     db.insert(key, value);
-    db.flush().unwrap();
+    match db.flush() {
+        Ok(()) => print!("Done!"),
+        Err(err) => print!("Oops! Some error happend: {}", err),
+    };
 }
 
 use std::collections::HashMap;
 struct Database {
     row: HashMap<String, String>,
+    flush: bool,
 }
 
 // impl means implmentations, so adding few implementations for the struct
@@ -37,7 +41,7 @@ impl Database {
             row.insert(key.to_owned(), value.to_owned());
         }
 
-        Ok(Database { row })
+        Ok(Database { row, flush: false })
     }
 
     // adding self as first arg make function->method
@@ -46,20 +50,34 @@ impl Database {
     }
 
     // here std::io::Result is same as Result<smthng,io::err>, with io error hardcoded
-    fn flush(self) -> std::io::Result<()> {
-        let mut contents = String::new();
-
-        for (key, value) in &self.row {
-            contents.push_str(key);
-            contents.push('\t'); // Pushes a single char
-            contents.push_str(value);
-            contents.push('\n');
-        }
-
-        std::fs::write("kv.db", contents)
+    fn flush(mut self) -> std::io::Result<()> {
+        self.flush = true;
+        do_flush(&self)
     }
     // Here in flush, we take DB by ownership. Technically we should try first borrowing it, then mutably borrowing it and then ownership
     // And borrwoing will work
     // But logically, if we called flush then there's no point of changing the DB, so we call it by ownership and hence DB will not extist after flush is called
     // Can be used in API devlopment
+}
+
+// This will by defualt always implement Drop on database, even if its not called manually
+impl Drop for Database {
+    fn drop(&mut self) {
+        if !self.flush {
+            let _ = do_flush(self);
+        }
+    }
+}
+
+fn do_flush(database: &Database) -> std::io::Result<()> {
+    let mut contents = String::new();
+
+    for (key, value) in &database.row {
+        contents.push_str(key);
+        contents.push('\t'); // Pushes a single char
+        contents.push_str(value);
+        contents.push('\n');
+    }
+
+    std::fs::write("kv.db", contents)
 }
