@@ -19,7 +19,7 @@ struct Database {
 // impl means implmentations, so adding few implementations for the struct
 impl Database {
     fn new() -> Result<Database, std::io::Error> {
-        let mut map = HashMap::new();
+        let mut row = HashMap::new();
 
         //  1) Read the kv.db file
 
@@ -34,10 +34,10 @@ impl Database {
         for line in contents.lines() {
             // 3)  populate our map
             let (key, value) = line.split_once('\t').expect("Corrupt database");
-            map.insert(key.to_owned(), value.to_owned());
+            row.insert(key.to_owned(), value.to_owned());
         }
 
-        Ok(Database { row: map })
+        Ok(Database { row })
     }
 
     // adding self as first arg make function->method
@@ -48,11 +48,15 @@ impl Database {
     // here std::io::Result is same as Result<smthng,io::err>, with io error hardcoded
     fn flush(self) -> std::io::Result<()> {
         let mut contents = String::new();
-        for pairs in &self.row {
-            let kvpair = format!("{}\t{}\n",pairs.0,pairs.1);
-            contents.push_str(&kvpair);
+
+        for (key, value) in &self.row {
+            contents.push_str(key);
+            contents.push('\t'); // Pushes a single char
+            contents.push_str(value);
+            contents.push('\n');
         }
-            std::fs::write("kv.db", contents)
+
+        std::fs::write("kv.db", contents)
     }
     // Here in flush, we take DB by ownership. Technically we should try first borrowing it, then mutably borrowing it and then ownership
     // And borrwoing will work
